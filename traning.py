@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from IPython.display import HTML
+import gdown
+import zipfile
 
 # Set random seed for reproducibility
 manualSeed = 999
@@ -19,8 +21,19 @@ random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 torch.use_deterministic_algorithms(True)  # Needed for reproducible results
 
+
+# CelebA dataset URL from Google Drive
+url = 'https://drive.google.com/uc?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM'
+zipPath = '/content/data/celebA/img_align_celeba.zip'
+
+gdown.download(url, zipPath, quiet=False)
+
 # Root directory for dataset
-dataroot = "data/celeba"
+dataroot = "/content/data/celebA/"
+
+# extract file
+with zipfile.ZipFile(zipPath, 'r') as zip_ref:
+    zip_ref.extractall(dataroot)
 
 # Number of workers for dataloader
 workers = 2
@@ -207,8 +220,8 @@ def traning():
     iters = 0
 
     # Paths for the models
-    generator_path = "model/generator.pth"
-    discriminator_path = "model/discriminator.pth"
+    generator_path = "/content/data/model/generator.pth"
+    discriminator_path = "/content/data/model/discriminator.pth"
 
     # Start training 
     print("Starting Training Loop...")
