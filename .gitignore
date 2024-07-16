@@ -1,3 +1,4 @@
-/data/CelebA/img_align_celeba
-/data/CelebA-main
+/celebA
 basic.py
+*.ipynb
+.ipynb_checkpoints

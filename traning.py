@@ -23,17 +23,17 @@ torch.use_deterministic_algorithms(True)  # Needed for reproducible results
 
 
 # CelebA dataset URL from Google Drive
-url = 'https://drive.google.com/uc?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM'
-zipPath = '/content/data/celebA/img_align_celeba.zip'
+url = 'https://drive.google.com/uc?id=1uj3FY7BcO9mr6gqW7cv-edKnN1feM912'
+zipPath = 'C:/Users/felix/code/DCGAN/celebA/img_align_celeba.zip'
 
-gdown.download(url, zipPath, quiet=False)
+# gdown.download(url, zipPath, quiet=False)
 
 # Root directory for dataset
-dataroot = "/content/data/celebA/"
+dataroot = "C:/Users/felix/code/DCGAN/celebA"
 
 # extract file
-with zipfile.ZipFile(zipPath, 'r') as zip_ref:
-    zip_ref.extractall(dataroot)
+# with zipfile.ZipFile(zipPath, 'r') as zip_ref:
+#     zip_ref.extractall(dataroot)
 
 # Number of workers for dataloader
 workers = 2
@@ -58,7 +58,7 @@ ngf = 64
 ndf = 64
 
 # Number of training epochs
-num_epochs = 1
+num_epochs = 10
 
 # Learning rate for optimizers
 lr = 0.0002
@@ -68,6 +68,43 @@ beta1 = 0.5
 
 # Number of GPUs available. Use 0 for CPU mode.
 ngpu = 1
+
+# EarlyStopping class
+class EarlyStopping:
+    def __init__(self, patience=2, verbose=False, delta=0, path='checkpoint.pth', trace_func=print):
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
+        self.path = path
+        self.trace_func = trace_func
+
+    def __call__(self, val_loss, model):
+        score = -val_loss
+
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+            self.counter = 0
+
+    def save_checkpoint(self, val_loss, model):
+        '''Saves model when validation loss decreases.'''
+        if self.verbose:
+            self.trace_func(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+        torch.save(model.state_dict(), self.path)
+        self.val_loss_min = val_loss
+
 
 # custom weights initialization called on ``netG`` and ``netD``
 def weights_init(m):
@@ -220,14 +257,17 @@ def traning():
     iters = 0
 
     # Paths for the models
-    generator_path = "/content/data/model/generator.pth"
-    discriminator_path = "/content/data/model/discriminator.pth"
+    generator_path = "C:/Users/felix/code/DCGAN/model/generator.pth"
+    discriminator_path = "C:/Users/felix/code/DCGAN/model/discriminator.pth"
+
+    # Initialize early stopping
+    generator_early_stopping = EarlyStopping(patience=2, verbose=True, path=generator_path)
+    discriminator_early_stopping = EarlyStopping(patience=2, verbose=True, path=discriminator_path)
 
     # Start training 
     print("Starting Training Loop...")
     # For each epoch
     for epoch in range(num_epochs):
-        # For each batch in the dataloader
         for i, data in enumerate(dataloader, 0):
             
             ############################
@@ -295,12 +335,27 @@ def traning():
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
-            iters += 1  
             
+            iters += 1 
+        
+        # Check early stopping criteria
+        generator_early_stopping(errG.item(), netG)
+        if generator_early_stopping.early_stop:
+            print("Early stopping")
+            break
+
+        discriminator_early_stopping(errD.item(), netD)
+        if discriminator_early_stopping.early_stop:
+            print("Early stopping")
+            break
+
     # Save the models after training
     save_model(netG, generator_path)
     save_model(netD, discriminator_path)
     print("Models saved successfully.")
+
+    netG.load_state_dict(torch.load(generator_path))
+    netD.load_state_dict(torch.load(discriminator_path))
 
     # Show losses versus training iterations.
     plt.figure(figsize=(10,5))
